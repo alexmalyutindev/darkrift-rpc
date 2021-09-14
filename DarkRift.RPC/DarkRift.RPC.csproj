@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net472</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\Plugins\DarkRift.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+    
+</Project>

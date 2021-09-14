@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+
+        <IsPackable>false</IsPackable>
+
+        <OutputType>Library</OutputType>
+
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
+        <PackageReference Include="Moq" Version="4.16.1" />
+        <PackageReference Include="NUnit" Version="3.13.1" />
+        <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+        <PackageReference Include="coverlet.collector" Version="3.0.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\DarkRift.RPC.Client\DarkRift.RPC.Client.csproj" />
+      <ProjectReference Include="..\DarkRift.RPC.Server\DarkRift.RPC.Server.csproj" />
+      <ProjectReference Include="..\DarkRift.RPC\DarkRift.RPC.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="DarkRift, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\Plugins\DarkRift.dll</HintPath>
+      </Reference>
+      <Reference Include="DarkRift.Client, Version=2.10.1.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\Plugins\DarkRift.Client.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>
