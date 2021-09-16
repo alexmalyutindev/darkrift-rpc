@@ -1,4 +1,6 @@
-﻿namespace DarkRift.RPC
+﻿using System;
+
+namespace DarkRift.RPC
 {
 	public sealed class RpcWrapper<T> : IDarkRiftSerializable where T : IDarkRiftSerializable, new()
 	{

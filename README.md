@@ -5,16 +5,16 @@ Examples
 ---
 - Register RPCs:
 ```c#
-RpcRegister.Register<MyRequest>(0);
-RpcRegister.Register<MyResponse>(1);
+RpcRegistry.RegisterRequest<MyRequest>(0);
+RpcRegistry.RegisterResponse<MyResponse>(1);
 ```
 - Subscribe:
 ```c#
 var messageFactory = new MyMessageFactory();
 var scheduler = new RpcScheduler(messageFactory);
-var processor = new RpcProcessor(scheduler);
+var sink = new RpcMessageSink(scheduler);
 
-processor.Subscribe((MyRequest r, IEndPoint ep) =>
+sink.Subscribe((MyRequest r, IEndPoint ep) =>
 {
     return new MyRequest();
 });
@@ -26,6 +26,7 @@ var server = new ServerEndPoint(client); // for Client->Server rpc
 
 var messageFactory = new MyMessageFactory();
 var scheduler = new RpcScheduler(messageFactory);
+var sink = new RpcMessageSink(scheduler);
 
 var response = await scheduler.Call<MyRequest, MyResponse>(client, request);
 ```

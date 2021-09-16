@@ -20,7 +20,7 @@ namespace DarkRift.RPC
 			where TResponse : IDarkRiftSerializable, new()
 		{
 			var requestRpc = new RpcWrapper<TRequest>(GetRequestId(), request);
-			var message = _messageFactory.Create(RpcDescription.GetTag<TRequest>(), requestRpc);
+			var message = _messageFactory.Create(RpcRegistry.GetTag<TRequest>(), requestRpc);
 
 			var tcs = new TaskCompletionSource<TResponse>();
 			var handler = new Action<TResponse>(response => tcs.SetResult(response));
@@ -35,7 +35,7 @@ namespace DarkRift.RPC
 		public void SendResponse<TResponse>(IEndPoint endPoint, RpcWrapper<TResponse> response)
 			where TResponse : IDarkRiftSerializable, new()
 		{
-			var message = _messageFactory.Create(RpcDescription.GetTag<TResponse>(), response);
+			var message = _messageFactory.Create(RpcRegistry.GetTag<TResponse>(), response);
 			endPoint.Send(message, SendMode.Reliable);
 		}
 

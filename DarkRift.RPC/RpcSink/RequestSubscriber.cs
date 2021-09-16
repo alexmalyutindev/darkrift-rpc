@@ -10,12 +10,12 @@ namespace DarkRift.RPC
 
 		public RequestSubscriber(Func<TRequest, IEndPoint, TResponse> func) => _func = func;
 
-		public void Invoke(RpcProcessor processor, IEndPoint endPoint, Message message)
+		public void Invoke(IRpcProcessor processor, IEndPoint endPoint, Message message)
 		{
 			var request = message.Deserialize<RpcWrapper<TRequest>>();
 			var response = _func(request.Value, endPoint);
 			var rpc = new RpcWrapper<TResponse>(request.ID, response);
-			processor.SendResponse(endPoint, rpc);
+			processor.Process(endPoint, rpc);
 		}
 	}
 }

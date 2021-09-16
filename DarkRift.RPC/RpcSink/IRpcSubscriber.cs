@@ -2,6 +2,6 @@
 {
 	public interface IRpcSubscriber
 	{
-		void Invoke(RpcProcessor processor, IEndPoint endPoint, Message message);
+		void Invoke(IRpcProcessor processor, IEndPoint endPoint, Message message);
 	}
 }

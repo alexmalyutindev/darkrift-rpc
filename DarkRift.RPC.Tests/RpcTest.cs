@@ -17,36 +17,51 @@ namespace DarkRift.RPC.Tests
 			var objectCacheHelper = new ObjectCacheHelper();
 			objectCacheHelper.InitializeObjectCache(ClientObjectCacheSettings.DontUseCache);
 
-			RpcRegister.Register<PingRequest>(0);
-			RpcRegister.Register<PingResponse>(1);
+			RpcRegistry.RegisterRequest<PingRequest>(0);
+			RpcRegistry.RegisterResponse<PingResponse>(1);
 
 			var messageFactory = new MessageFactory();
-			var endPoint = new Mock<IEndPoint>();
+			var server = new Mock<IEndPoint>();
+			var client = new Mock<IEndPoint>();
 
-			var scheduler = new RpcScheduler(messageFactory);
+			// Client
+			var clientScheduler = new RpcScheduler(messageFactory);
+			var clientSink = new RpcMessageSink(clientScheduler);
 
-			var processor = new RpcProcessor(scheduler);
+			// Server
+			var serverScheduler = new RpcScheduler(messageFactory);
+			var severSink = new RpcMessageSink(serverScheduler);
 
-			processor.Subscribe((PingRequest r, IEndPoint ep) =>
+			server.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
+				.Callback(async (Message m, SendMode _) =>
+				{
+					Console.WriteLine($"[Client] Send {m}");
+					await Task.Delay(TimeSpan.FromMilliseconds(100));
+					Console.WriteLine($"[Server] Receive {m}");
+					Console.WriteLine($"[Server] Process {m}");
+					severSink.HandleMessage(client.Object, m);
+				});
+
+			client.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
+				.Callback(async (Message m, SendMode _) =>
+				{
+					Console.WriteLine($"[Server] Send {m}");
+					await Task.Delay(TimeSpan.FromMilliseconds(100));
+					Console.WriteLine($"[Client] Receive {m}");
+					Console.WriteLine($"[Client] Process {m}");
+					clientSink.HandleMessage(server.Object, m);
+				});
+
+			severSink.Subscribe((PingRequest r, IEndPoint ep) =>
 			{
-				Console.WriteLine($"Process RPC request {r} from {ep}");
+				Console.WriteLine($"[Server] Call subscriber for RPC request {r} from {ep}");
 				return new PingResponse() {Now = DateTime.Now};
 			});
 
-			endPoint
-				.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
-				.Callback(async (Message m, SendMode _) =>
-				{
-					Console.WriteLine($"Send {m}");
-					await Task.Delay(TimeSpan.FromSeconds(3));
-					Console.WriteLine($"Receive {m}");
-					Console.WriteLine($"Process {m}");
-					processor.Process(endPoint.Object, m);
-				});
-
 			var request = new PingRequest() {Now = DateTime.Now};
 			Console.WriteLine($"-> Call RPC {request}");
-			var response = await scheduler.Call<PingRequest, PingResponse>(endPoint.Object, request);
+
+			var response = await clientScheduler.Call<PingRequest, PingResponse>(server.Object, request);
 			Console.WriteLine($"<- Receive RPC response {response}");
 
 			Assert.Pass();
