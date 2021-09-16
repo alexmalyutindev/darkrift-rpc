@@ -5,15 +5,15 @@ namespace DarkRift.RPC
 {
 	public class RpcMessageSink
 	{
-		private readonly RpcScheduler _scheduler;
+		private readonly IRpcResponseHandler _responseHandler;
 		private readonly Dictionary<ushort, IRpcSubscriber> _requestSubscribers = new Dictionary<ushort, IRpcSubscriber>();
 
-		private IRpcProcessor _requestProcessor;
-		private IRpcProcessor _responseProcessor;
+		private readonly IRpcProcessor _requestProcessor;
+		private readonly IRpcProcessor _responseProcessor;
 
-		public RpcMessageSink(RpcScheduler scheduler)
+		public RpcMessageSink(IRpcResponseHandler responseHandler)
 		{
-			_scheduler = scheduler;
+			_responseHandler = responseHandler;
 			_requestProcessor = new RpcRequestProcessor(this);
 			_responseProcessor = new RpcResponseProcessor(this);
 		}
@@ -65,13 +65,13 @@ namespace DarkRift.RPC
 		public void SendResponse<TResponse>(IEndPoint endPoint, RpcWrapper<TResponse> response)
 			where TResponse : IDarkRiftSerializable, new()
 		{
-			_scheduler.SendResponse(endPoint, response);
+			_responseHandler.SendResponse(endPoint, response);
 		}
 
 		public void HandleResponse<TResponse>(RpcWrapper<TResponse> response)
 			where TResponse : IDarkRiftSerializable, new()
 		{
-			_scheduler.HandleResponse(response);
+			_responseHandler.HandleResponse(response);
 		}
 	}
 }

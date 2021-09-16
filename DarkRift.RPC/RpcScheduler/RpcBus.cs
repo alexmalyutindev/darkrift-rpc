@@ -4,13 +4,13 @@ using System.Threading.Tasks;
 
 namespace DarkRift.RPC
 {
-	public class RpcScheduler
+	public class RpcBus : IRpcResponseHandler, IRpcBus
 	{
 		private ulong _rpcCounter;
 		private readonly IMessageFactory _messageFactory;
 		private readonly Dictionary<ulong, Delegate> _requestStack = new Dictionary<ulong, Delegate>();
 
-		public RpcScheduler(IMessageFactory messageFactory)
+		public RpcBus(IMessageFactory messageFactory)
 		{
 			_messageFactory = messageFactory;
 		}
@@ -32,15 +32,13 @@ namespace DarkRift.RPC
 			return await tcs.Task;
 		}
 
-		public void SendResponse<TResponse>(IEndPoint endPoint, RpcWrapper<TResponse> response)
-			where TResponse : IDarkRiftSerializable, new()
+		void IRpcResponseHandler.SendResponse<TResponse>(IEndPoint endPoint, RpcWrapper<TResponse> response)
 		{
 			var message = _messageFactory.Create(RpcRegistry.GetTag<TResponse>(), response);
 			endPoint.Send(message, SendMode.Reliable);
 		}
 
-		public void HandleResponse<TResponse>(RpcWrapper<TResponse> response)
-			where TResponse : IDarkRiftSerializable, new()
+		void IRpcResponseHandler.HandleResponse<TResponse>(RpcWrapper<TResponse> response)
 		{
 			if (_requestStack.TryGetValue(response.ID, out var handler) && handler is Action<TResponse> action)
 			{

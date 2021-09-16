@@ -8,74 +8,100 @@ namespace DarkRift.RPC.Tests
 {
 	public class Tests
 	{
+		private ObjectCacheHelper _objectCacheHelper;
+		private TestEnv _server;
+		private TestEnv _client;
+
 		[SetUp]
-		public void Setup() { }
+		public void Setup()
+		{
+			_objectCacheHelper = new ObjectCacheHelper();
+			_objectCacheHelper.InitializeObjectCache(ClientObjectCacheSettings.DontUseCache);
+
+			_server = TestEnv.Create("Server");
+			_client = TestEnv.Create("Client");
+		}
 
 		[Test]
 		public async Task RpcCallTest()
 		{
-			var objectCacheHelper = new ObjectCacheHelper();
-			objectCacheHelper.InitializeObjectCache(ClientObjectCacheSettings.DontUseCache);
-
 			RpcRegistry.RegisterRequest<PingRequest>(0);
 			RpcRegistry.RegisterResponse<PingResponse>(1);
 
-			var messageFactory = new MessageFactory();
-			var server = new Mock<IEndPoint>();
-			var client = new Mock<IEndPoint>();
-
-			// Client
-			var clientScheduler = new RpcScheduler(messageFactory);
-			var clientSink = new RpcMessageSink(clientScheduler);
-
-			// Server
-			var serverScheduler = new RpcScheduler(messageFactory);
-			var severSink = new RpcMessageSink(serverScheduler);
-
-			server.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
+			_server.EndPointMock.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
 				.Callback(async (Message m, SendMode _) =>
 				{
-					Console.WriteLine($"[Client] Send {m}");
+					_client.Log($"Send {m}");
 					await Task.Delay(TimeSpan.FromMilliseconds(100));
-					Console.WriteLine($"[Server] Receive {m}");
-					Console.WriteLine($"[Server] Process {m}");
-					severSink.HandleMessage(client.Object, m);
+					_server.Log($"Receive {m}");
+					_server.Sink.HandleMessage(_client.EndPointMock.Object, m);
 				});
 
-			client.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
+			_client.EndPointMock.Setup(ep => ep.Send(It.IsAny<Message>(), It.IsAny<SendMode>()))
 				.Callback(async (Message m, SendMode _) =>
 				{
-					Console.WriteLine($"[Server] Send {m}");
+					_server.Log($"Send {m}");
 					await Task.Delay(TimeSpan.FromMilliseconds(100));
-					Console.WriteLine($"[Client] Receive {m}");
-					Console.WriteLine($"[Client] Process {m}");
-					clientSink.HandleMessage(server.Object, m);
+					_client.Log($"Receive {m}");
+					_client.Sink.HandleMessage(_server.EndPointMock.Object, m);
 				});
 
-			severSink.Subscribe((PingRequest r, IEndPoint ep) =>
+			_server.Sink.Subscribe((PingRequest r, IEndPoint ep) =>
 			{
-				Console.WriteLine($"[Server] Call subscriber for RPC request {r} from {ep}");
-				return new PingResponse() {Now = DateTime.Now};
+				var response = new PingResponse() {Now = DateTime.Now};
+				_server.Log($"Resolve RPC request [{r}] with response [{response}]");
+				return response;
 			});
 
 			var request = new PingRequest() {Now = DateTime.Now};
-			Console.WriteLine($"-> Call RPC {request}");
-
-			var response = await clientScheduler.Call<PingRequest, PingResponse>(server.Object, request);
-			Console.WriteLine($"<- Receive RPC response {response}");
+			_client.Log($"Call RPC [{request}]");
+			var response = await _client.RpcBus.Call<PingRequest, PingResponse>(_server.EndPointMock.Object, request);
+			_client.Log($"Receive RPC response [{response}]");
 
 			Assert.Pass();
 		}
 
-		public class MessageFactory : IMessageFactory
+		[TearDown]
+		public void TearDown() { }
+
+		private class TestEnv
 		{
-			public Message Create<T>(ushort tag, T message) where T : IDarkRiftSerializable
+			public string Name { get; set; }
+			public Mock<IEndPoint> EndPointMock { get; set; }
+			public Mock<IMessageFactory> MessageFactory { get; set; }
+			public RpcBus RpcBus { get; set; }
+			public RpcMessageSink Sink { get; set; }
+
+			public static TestEnv Create(string name)
 			{
-				return Message.Create(tag, message);
+				var factory = new Mock<IMessageFactory>();
+				factory
+					.Setup(f =>
+						f.Create(It.IsAny<ushort>(), It.IsAny<IDarkRiftSerializable>()))
+					.Returns((ushort tag, IDarkRiftSerializable data) =>
+						Message.Create<IDarkRiftSerializable>(tag, data)
+					);
+
+				var rpcBus = new RpcBus(factory.Object);
+
+				var server = new TestEnv()
+				{
+					Name = name,
+					EndPointMock = new Mock<IEndPoint>(),
+					MessageFactory = factory,
+					RpcBus = rpcBus,
+					Sink = new RpcMessageSink(rpcBus)
+				};
+				return server;
+			}
+
+			public void Log(string message)
+			{
+				Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} [{Name}] {message}");
 			}
 		}
 
-		public class PingRequest : IDarkRiftSerializable
+		private class PingRequest : IDarkRiftSerializable
 		{
 			public DateTime Now;
 			public void Deserialize(DeserializeEvent e) => Now = new DateTime(e.Reader.ReadInt64());
@@ -83,7 +109,7 @@ namespace DarkRift.RPC.Tests
 			public override string ToString() => $"PingRequest {Now}";
 		}
 
-		public class PingResponse : IDarkRiftSerializable
+		private class PingResponse : IDarkRiftSerializable
 		{
 			public DateTime Now;
 			public void Deserialize(DeserializeEvent e) => Now = new DateTime(e.Reader.ReadInt64());
