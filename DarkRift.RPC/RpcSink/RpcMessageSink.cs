@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 namespace DarkRift.RPC
 {
-	public class RpcMessageSink
+	public class RpcMessageSink<TSender> where TSender : IEndPoint
 	{
 		private readonly IRpcResponseHandler _responseHandler;
-		private readonly Dictionary<ushort, IRpcSubscriber> _requestSubscribers = new Dictionary<ushort, IRpcSubscriber>();
+		private readonly Dictionary<ushort, IRpcSubscriber<TSender>> _requestSubscribers;
 
 		private readonly IRpcProcessor _requestProcessor;
 		private readonly IRpcProcessor _responseProcessor;
@@ -14,6 +14,7 @@ namespace DarkRift.RPC
 		public RpcMessageSink(IRpcResponseHandler responseHandler)
 		{
 			_responseHandler = responseHandler;
+			_requestSubscribers = new Dictionary<ushort, IRpcSubscriber<TSender>>();
 			_requestProcessor = new RpcRequestProcessor(this);
 			_responseProcessor = new RpcResponseProcessor(this);
 		}
@@ -22,16 +23,16 @@ namespace DarkRift.RPC
 			where TRequest : IDarkRiftSerializable, new()
 			where TResponse : IDarkRiftSerializable, new()
 		{
-			Subscribe<TRequest, TResponse>((request, _) => func(request));
+			Subscribe<TRequest, TResponse>((_, request) => func(request));
 		}
 
-		public void Subscribe<TRequest, TResponse>(Func<TRequest, IEndPoint, TResponse> func)
+		public void Subscribe<TRequest, TResponse>(Func<TSender, TRequest, TResponse> func)
 			where TRequest : IDarkRiftSerializable, new()
 			where TResponse : IDarkRiftSerializable, new()
 		{
 			if (_requestSubscribers.ContainsKey(RpcRegistry.GetTag<TRequest>()))
 				throw new Exception($"RPC Request {typeof(TRequest)} was already subscribed");
-			_requestSubscribers.Add(RpcRegistry.GetTag<TRequest>(), new RequestSubscriber<TRequest, TResponse>(func));
+			_requestSubscribers.Add(RpcRegistry.GetTag<TRequest>(), new RequestSubscriber<TRequest, TResponse, TSender>(func));
 		}
 
 		public void Unsubscribe<TRequest, TResponse>(Func<TRequest, TResponse> func)
@@ -43,7 +44,7 @@ namespace DarkRift.RPC
 			_requestSubscribers.Remove(RpcRegistry.GetTag<TRequest>());
 		}
 
-		public void HandleMessage(IEndPoint endPoint, Message message)
+		public void HandleMessage(TSender endPoint, Message message)
 		{
 			if (RpcRegistry.TryGetDescription(message.Tag, out var description))
 			{

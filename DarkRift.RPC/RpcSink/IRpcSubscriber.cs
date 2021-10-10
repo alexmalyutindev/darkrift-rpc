@@ -1,7 +1,7 @@
 ﻿namespace DarkRift.RPC
 {
-	public interface IRpcSubscriber
+	public interface IRpcSubscriber<in TSender> where TSender : IEndPoint
 	{
-		void Invoke(IRpcProcessor processor, IEndPoint endPoint, Message message);
+		void Invoke(IRpcProcessor processor, TSender endPoint, Message message);
 	}
 }

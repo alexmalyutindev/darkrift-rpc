@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using DarkRift.Client;
+using DarkRift.Server;
 using NUnit.Framework;
 using Moq;
+using RPC.Server;
+using MessageReceivedEventArgs = DarkRift.Server.MessageReceivedEventArgs;
 
 namespace DarkRift.RPC.Tests
 {
@@ -46,11 +50,11 @@ namespace DarkRift.RPC.Tests
 					_client.Sink.HandleMessage(_server.EndPointMock.Object, m);
 				});
 
-			_server.Sink.Subscribe((PingRequest r, IEndPoint ep) =>
+			_server.Sink.Subscribe((IEndPoint sender, PingRequest req) =>
 			{
-				var response = new PingResponse() {Now = DateTime.Now};
-				_server.Log($"Resolve RPC request [{r}] with response [{response}]");
-				return response;
+				var res = new PingResponse() {Now = DateTime.Now};
+				_server.Log($"Resolve RPC request [{req}] with response [{res}]");
+				return res;
 			});
 
 			var request = new PingRequest() {Now = DateTime.Now};
@@ -70,7 +74,7 @@ namespace DarkRift.RPC.Tests
 			public Mock<IEndPoint> EndPointMock { get; set; }
 			public Mock<IMessageFactory> MessageFactory { get; set; }
 			public RpcBus RpcBus { get; set; }
-			public RpcMessageSink Sink { get; set; }
+			public RpcMessageSink<IEndPoint> Sink { get; set; }
 
 			public static TestEnv Create(string name)
 			{
@@ -90,7 +94,7 @@ namespace DarkRift.RPC.Tests
 					EndPointMock = new Mock<IEndPoint>(),
 					MessageFactory = factory,
 					RpcBus = rpcBus,
-					Sink = new RpcMessageSink(rpcBus)
+					Sink = new RpcMessageSink<IEndPoint>(rpcBus)
 				};
 				return server;
 			}
@@ -115,6 +119,41 @@ namespace DarkRift.RPC.Tests
 			public void Deserialize(DeserializeEvent e) => Now = new DateTime(e.Reader.ReadInt64());
 			public void Serialize(SerializeEvent e) => e.Writer.Write(Now.Ticks);
 			public override string ToString() => $"PingResponse {Now}";
+		}
+
+		public class MyCustomClient
+		{
+			private Dictionary<int, int> a;
+			private IClient _client;
+			private ClientEndPoint _clientEP;
+			private RpcBus _rpcBus;
+			private RpcMessageSink<IEndPoint> _sink;
+
+			public MyCustomClient(IClient client)
+			{
+				var darkRiftServer = new DarkRiftServer(null);
+				darkRiftServer.NetworkListenerManager.GetNetworkListeners();
+				_client = client;
+				_clientEP = new ClientEndPoint(_client);
+
+				_client.MessageReceived += MessageHandler;
+				_rpcBus = new RpcBus(null);
+				_sink = new RpcMessageSink<IEndPoint>(_rpcBus);
+
+				_sink.Subscribe<PingRequest, PingResponse>(PingRPC);
+			}
+
+			private PingResponse PingRPC(PingRequest arg)
+			{
+				Console.WriteLine(_client.ID);
+				return new PingResponse();
+			}
+
+			private void MessageHandler(object sender, MessageReceivedEventArgs e)
+			{
+				using var message = e.GetMessage();
+				_sink.HandleMessage(_clientEP, message);
+			}
 		}
 	}
 }

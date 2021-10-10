@@ -14,18 +14,30 @@ RpcRegistry.RegisterResponse<MyResponse>(1);
 - Subscribe:
 ```c#
 var messageFactory = new MyMessageFactory();
-var rpcBus = new RpcBus(messageFactory);
+var rpcBus = new RpcBus<IEndPoint>(messageFactory); // You may use you custom type ensted of 'IEndPoint'
 var sink = new RpcMessageSink(rpcBus);
 
-sink.Subscribe((MyRequest r, IEndPoint ep) =>
+sink.Subscribe((IEndPoint sender, MyRequest request) =>
 {
     return new MyRequest();
 });
 ```
 - Call RPC:
 ```c#
-var client = new ClientEndPoint(client); // for Server->Client rpc
-var server = new ServerEndPoint(client); // for Client->Server rpc
+var client = new ClientEndPoint(...); // for Server->Client rpc
+var server = new ServerEndPoint(...); // for Client->Server rpc
 
 var response = await rpcBus.Call<MyRequest, MyResponse>(client, request);
+```
+- On DarkRift server side:
+```c#
+private void OnClientConnected(object sender, ClientConnectedEventArgs e)
+{
+    var clientData = new MyClientData(Client);
+    e.Client.MessageReceived += (sender, e) =>
+    {
+        using var message = e.GetMessage();
+        _rpcSink.HandleMessage(clientData, message);
+    };
+}
 ```
